@@ -64,7 +64,7 @@ func main() {
 	wg.Wait()
 	close(results)
 
-	elapsed := time.Since(start) 
+	elapsed := time.Since(start)
 
 	fmt.Println("\nTüm işler tamamlandı, sonuçlar:")
 
@@ -74,12 +74,12 @@ func main() {
 
 	fmt.Printf("\nToplam geçen süre: %v\n", elapsed)
 
-	// var myArray = []int{1, 2, 3, 4, 5, 10, 15, 20, 25, 30}
-	// exercise(myArray)
-
+	var myArray = []int{1, 2, 3, 4, 5, 10, 15, 20, 25, 30}
+	fmt.Println(CreateAndFilledArray(myArray))
+	ForLoopExample(25)
 	go fiberHandler() // Fiber uygulamasını başlat
-	go Hi()     // Fiber uygulamasını başlat
-	go helper() // net/http paketinden helper fonksiyonunu çağır
-	select {}   // Sonsuz döngüde bekle, programın kapanmaması için
+	go Hi()           // Fiber uygulamasını başlat
+	go helper()       // net/http paketinden helper fonksiyonunu çağır
+	select {}         // Sonsuz döngüde bekle, programın kapanmaması için
 
 }
