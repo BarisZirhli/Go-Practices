@@ -34,7 +34,13 @@ func worker(id int, jobs <-chan string, results chan<- string, wg *sync.WaitGrou
 func main() {
 	mypack.SayMe()
 	fmt.Println("mypack paketinden sayMe fonksiyonu çağrıldı.")
-
+	mypack.LoadEnv()
+	var service_list=mypack.GETpearOperation()
+	if len(service_list) == 0 {
+		fmt.Println("⚠️ Service list boş, işlem yapılmayacak.")
+		return
+	}
+	mypack.GETJobQuotes(service_list)
 	urls := []string{
 		"https://www.google.com",
 		"https://www.github.com",
@@ -60,7 +66,7 @@ func main() {
 		jobs <- url
 	}
 	close(jobs)
-
+	
 	wg.Wait()
 	close(results)
 
