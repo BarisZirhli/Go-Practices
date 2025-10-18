@@ -1,91 +1,102 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
-	"sync"
-	"time"
+	"image/color"
+	"os"
 
 	"example.com/myproject/mypack"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 )
 
-func checkSite(url string) string {
-	start := time.Now()
-	resp, err := http.Get(url)
-	if err != nil {
-
-		return fmt.Sprintf("%s: hata %v", url, err)
-	}
-
-	resp.Body.Close()
-	elapsed := time.Since(start)
-	return fmt.Sprintf("%s: %v", url, elapsed)
-}
-
-func worker(id int, jobs <-chan string, results chan<- string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for url := range jobs {
-		sonuc := checkSite(url)
-		fmt.Printf("Worker %d -> %s\n", id, sonuc)
-		results <- sonuc
-	}
-}
-
 func main() {
-	mypack.SayMe()
-	fmt.Println("mypack paketinden sayMe fonksiyonu çağrıldı.")
-	mypack.LoadEnv()
-	var service_list=mypack.GETpearOperation()
-	if len(service_list) == 0 {
-		fmt.Println("⚠️ Service list boş, işlem yapılmayacak.")
-		return
-	}
-	mypack.GETJobQuotes(service_list)
-	urls := []string{
-		"https://www.google.com",
-		"https://www.github.com",
-		"https://www.stackoverflow.com",
-		"https://www.reddit.com",
-		"https://www.wikipedia.org",
-		"https://www.sahibinden.com",
-	}
+	myApp := app.New()
+	win := myApp.NewWindow("Pear Service Manager")
+	win.Resize(fyne.NewSize(900, 600))
 
-	jobs := make(chan string, len(urls))
-	results := make(chan string, len(urls))
-
-	var wg sync.WaitGroup
-
-	start := time.Now()
-
-	for w := 1; w <= 6; w++ {
-		wg.Add(1)
-		go worker(w, jobs, results, &wg)
-	}
-
-	for _, url := range urls {
-		jobs <- url
-	}
-	close(jobs)
 	
-	wg.Wait()
-	close(results)
-
-	elapsed := time.Since(start)
-
-	fmt.Println("\nTüm işler tamamlandı, sonuçlar:")
-
-	for res := range results {
-		fmt.Println(res)
+	data, err := os.ReadFile("pear.png")
+	if err == nil {
+		icon := fyne.NewStaticResource("pear.png", data)
+		win.SetIcon(icon)
 	}
 
-	fmt.Printf("\nToplam geçen süre: %v\n", elapsed)
+	title := widget.NewLabelWithStyle("Pear Service Manager", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	title.TextStyle.Bold = true
 
-	var myArray = []int{1, 2, 3, 4, 5, 10, 15, 20, 25, 30}
-	fmt.Println(CreateAndFilledArray(myArray))
-	ForLoopExample(25)
-	go fiberHandler() // Fiber uygulamasını başlat
-	go Hi()           // Fiber uygulamasını başlat
-	go helper()       // net/http paketinden helper fonksiyonunu çağır
-	select {}         // Sonsuz döngüde bekle, programın kapanmaması için
+	subtitle := widget.NewLabel("Servis işlemleri için aşağıdaki butonları kullanın:")
+	subtitle.Alignment = fyne.TextAlignCenter
 
+	logVBox := container.NewVBox()
+	
+	darkBackground := canvas.NewRectangle(color.RGBA{R: 30, G: 30, B: 30, A: 255})
+	
+	logWithBackground := container.NewStack(darkBackground, container.NewPadded(logVBox))
+	scrollableLog := container.NewVScroll(logWithBackground)
+	scrollableLog.SetMinSize(fyne.NewSize(0, 400))
+
+	appendLog := func(msg string) {
+		logLabel := widget.NewLabel(msg)
+		logLabel.Wrapping = fyne.TextWrapWord
+		logVBox.Add(logLabel)
+		scrollableLog.ScrollToBottom()
+	}
+
+	btnLoadEnv := widget.NewButtonWithIcon(".env Load", theme.FileTextIcon(), func() {
+		mypack.LoadEnv()
+		appendLog("✅ ENV. Loaded.")
+	})
+	btnLoadEnv.Importance = widget.MediumImportance
+
+	btnServices := widget.NewButtonWithIcon("Servisleri Başlat", theme.MailSendIcon(), func() {
+		services := mypack.GETpearOperation()
+		if len(services) == 0 {
+			appendLog("⚠️ Service Empty.")
+			return
+		}
+		mypack.GETJobQuotes(services, appendLog)
+		appendLog("✅ Service Done Successfully.")
+	})
+	btnServices.Importance = widget.HighImportance
+
+	btnGrid := container.NewGridWithColumns(2,
+		btnLoadEnv,
+		btnServices,
+	)
+
+
+	header := container.NewVBox(
+		container.NewPadded(title),
+		container.NewPadded(subtitle),
+		container.NewPadded(btnGrid),
+		widget.NewSeparator(),
+	)
+
+
+	logLabel := widget.NewLabelWithStyle("📋 LOGS:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	
+	logSection := container.NewBorder(
+		container.NewPadded(logLabel),
+		nil,
+		nil,
+		nil,
+		container.NewPadded(scrollableLog),
+	)
+
+
+	content := container.NewBorder(
+		header,
+		nil,
+		nil,
+		nil,
+		logSection,
+	)
+
+	win.SetContent(content)
+	win.ShowAndRun()
 }
