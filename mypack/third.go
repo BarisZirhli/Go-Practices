@@ -94,7 +94,7 @@ func GETpearOperation() map[string]string {
 	return serviceMap
 }
 
-func GETJobQuotes(serviceMap map[string]string) {
+func GETJobQuotes(serviceMap map[string]string, log func(msg string)) {
 	client := &http.Client{}
 	token := getEnv("AUTH_TOKEN", "")
 	serviceURL := getEnv("SERVICE_URL", "")
@@ -106,7 +106,8 @@ func GETJobQuotes(serviceMap map[string]string) {
 
 		req, err := http.NewRequest("GET", URL, nil)
 		if err != nil {
-			panic(err)
+			log("❌ Request hatası: " + err.Error())
+			continue
 		}
 
 		req.Header.Set("accept", "application/json")
@@ -118,44 +119,44 @@ func GETJobQuotes(serviceMap map[string]string) {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			panic(err)
+			log("❌ HTTP hatası: " + err.Error())
+			continue
 		}
 
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		fmt.Println("Status:", resp.Status)
+		log("🌐 Status: " + resp.Status + " | Record: " + recordID)
 
 		var data map[string]interface{}
 		if err := json.Unmarshal(body, &data); err != nil {
-			fmt.Println("⚠️ JSON parse hatası:", err)
-			fmt.Println("Raw response body:", string(body))
+			log("⚠️ JSON parse hatası: " + err.Error())
 			continue
 		}
 
 		if isLead, ok := data["is_lead_required"].(bool); ok {
 			if leadPriceRaw, ok := data["lead_price"].(float64); ok {
+				msg := fmt.Sprintf("📌 Record: %s | Lead Required: %v | Lead Price: %.2f", recordID, isLead, leadPriceRaw)
+				log(msg)
 				if leadPriceRaw > 120.00 {
-					DeclineJob(recordID)
-				} 
-				fmt.Printf("Record ID: %s | Lead Required: %v | Lead Price: %.2f\n", recordID, isLead, leadPriceRaw)
+					log("🚫 Fiyat yüksek, reddediliyor: " + recordID)
+					DeclineJob(recordID, log)
+				}
 			} else {
-				fmt.Println("⚠️ Lead price alınamadı:", recordID)
+				log("⚠️ Lead price alınamadı: " + recordID)
 			}
 		} else {
-			fmt.Println("⚠️ Lead bilgisi alınamadı:", recordID)
+			log("⚠️ Lead bilgisi alınamadı: " + recordID)
 		}
-
 	}
 }
 
-func DeclineJob(ClientID string) {
+func DeclineJob(ClientID string, log func(msg string)) {
 	client := &http.Client{}
 	token := getEnv("AUTH_TOKEN", "")
 	decline := getEnv("DECLINE_URL", "")
 	url := fmt.Sprintf("%s%s/nothanks", decline, ClientID)
 
-	
 	var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 	JobReasonID := r.Int31n(5) + 13
 	payload := map[string]interface{}{
@@ -168,7 +169,8 @@ func DeclineJob(ClientID string) {
 	jsonData, _ := json.Marshal(payload)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		panic(err)
+		log("❌ Decline request hatası: " + err.Error())
+		return
 	}
 
 	req.Header.Set("accept", "application/json")
@@ -178,14 +180,15 @@ func DeclineJob(ClientID string) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log("❌ Decline HTTP hatası: " + err.Error())
+		return
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	fmt.Println("Status:", resp.Status)
-	fmt.Println("Response:", string(body))
+	log("✅ Decline Status: " + resp.Status + " | " + string(body))
 }
+
 
 func SayMe() {
 	fmt.Println("Hello, World!")
